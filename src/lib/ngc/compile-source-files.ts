@@ -69,13 +69,23 @@ export async function compileSourceFiles(
     ...ngProgram.getNgStructuralDiagnostics()
   ];
 
+  const beforeTs: ts.TransformerFactory<ts.SourceFile>[] = [];
+
+  if (tsConfigOptions.plugins && tsConfigOptions.plugins instanceof Array) {
+    (tsConfigOptions.plugins as any[]).forEach(plugin => {
+      const resolved = require(plugin.transform);
+      beforeTs.push(resolved.default(ngProgram.getTsProgram()));
+    });
+  }
+
   // if we have an error we don't want to transpile.
   const hasError = ng.exitCodeFromResult(allDiagnostics) > 0;
   if (!hasError) {
     // certain errors are only emitted by a compilation hence append to previous diagnostics
     const { diagnostics } = ngProgram.emit({
       emitCallback: createEmitCallback(tsConfigOptions),
-      emitFlags
+      emitFlags,
+      customTransformers: { beforeTs }
     });
 
     allDiagnostics.push(...diagnostics);
